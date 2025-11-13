@@ -96,27 +96,48 @@ export default function UserFormModal({ open, handleClose, userToEdit }) {
         setLoading(true);
         setError(null);
 
-        const dataToSend = { ...data 
-            ,...(isEditing && {
-                idUsuario: userToEdit.idUsuario,
-                estado:userToEdit.estado })
-        };
-       
+        // 1. Crear el objeto base (contiene strings para idRol y estado)
+        let dataToSend = { ...data };
+
+        // Ambas propiedades deben ser números para la API (SQL)
+        dataToSend.idRol = Number(dataToSend.idRol);
         
+        // El 'estado' solo viene si estamos editando, pero siempre debe ser numérico.
+        // Aunque el campo 'estado' esté como string en RHF, lo convertimos a number aquí.
+        if (dataToSend.estado !== undefined && dataToSend.estado !== null) {
+            dataToSend.estado = Number(dataToSend.estado);
+        }
+
+
+        if (isEditing) {
+            // 3. LIMPIEZA DE CONTRASEÑA (CRÍTICO)
+            // Elimina 'contrasenna' si viene vacía (como está oculto, siempre estará vacía)
+            if (dataToSend.contrasenna === '' || dataToSend.contrasenna === null) {
+                delete dataToSend.contrasenna;
+            }
+            
+            // 4. INCLUIR idUsuario (Necesario para el SQL UPDATE)
+            dataToSend.idUsuario = userToEdit.idUsuario;
+        }
+
         try {
             let message = '';
             if (isEditing) {
+                // Llama al servicio con el ID en la URL y el objeto limpio y convertido
                 await UserService.updateUser(userToEdit.idUsuario, dataToSend);
                 message = `Usuario ${userToEdit.idUsuario} actualizado correctamente.`;
             } else {
                 await UserService.createUser(dataToSend);
                 message = `Usuario creado correctamente.`;
             }
-
+            
             handleClose(true, message);
         } catch (err) {
-            console.error(isEditing ? "Error al actualizar usuario:" : "Error al crear usuario:", err);
-            setError(`Error al guardar: ${err.response?.data?.message || 'Verifica la conexión o los datos.'}`);
+            // Revisa la consola: el error de la API (err.response?.data) te dirá la razón exacta.
+            console.error("Error de API:", err.response?.data);
+            console.error("Payload enviado:", dataToSend);
+            const apiError = err.response?.data?.message || err.response?.data?.error || 'Verifica la conexión o los datos.';
+            setError(`Error al guardar: ${apiError}`);
         } finally {
             setLoading(false);
         }
@@ -220,7 +241,7 @@ export default function UserFormModal({ open, handleClose, userToEdit }) {
                 />
                 
                 {/* --- CAMPO CONTRASEÑA --- */}
-                {!isEditing && ( // <--- SOLO AL CREAR (¡NO AL EDITAR!)
+                {!isEditing && ( // <--- SOLO AL CREAR
                     <Controller
                         name="contrasenna"
                         control={control}
@@ -235,6 +256,30 @@ export default function UserFormModal({ open, handleClose, userToEdit }) {
                                 error={!!errors.contrasenna}
                                 helperText={errors.contrasenna?.message}
                             />
+                        )}
+                    />
+                )}
+
+                {/* --- CAMPO ESTADO (SELECT, SOLO EDITAR) --- */}
+                {isEditing && (
+                    <Controller
+                        name="estado"
+                        control={control}
+                        render={({ field }) => (
+                            <FormControl fullWidth margin="normal" required error={!!errors.estado}>
+                                <InputLabel id="estado-select-label">Estado</InputLabel>
+                                <Select
+                                    {...field}
+                                    labelId="estado-select-label"
+                                    id="estado-select"
+                                    label="Estado"                                    
+                                    value={field.value !== undefined ? field.value : 1}                                    
+                                >
+                                    <MenuItem value={1}>Activo</MenuItem>
+                                    <MenuItem value={0}>Inactivo</MenuItem>
+                                </Select>
+                                {errors.estado && <Typography color="error" variant="caption" sx={{ml: 2}}>{errors.estado.message}</Typography>}
+                            </FormControl>
                         )}
                     />
                 )}

@@ -23,18 +23,33 @@ export const userSchema = yup.object().shape({
     // Rol: Requerido (asumimos que el select siempre tendrá un valor por defecto)
     idRol: yup.string().required("Debe seleccionar un Rol."),
 
+    estado: yup.number() // Se debe validar como número
+    .when('$isEditing', {
+        is: true,
+        // En edición es requerido y solo acepta 1 o 0
+        then: (schema) => schema
+            .required("El estado es obligatorio en edición.")
+            .oneOf([1, 0], 'El estado debe ser Activo (1) o Inactivo (0).'),
+        // En creación es opcional/ignorado
+        otherwise: (schema) => schema.optional(),
+    }),
+
     // Contraseña:
     contrasenna: yup
-    .string()
-    .min(6, 'La contraseña debe tener al menos 6 caracteres.')
-    // Usamos when para hacerla requerida SOLO si NO estamos editando
-    .when('$isEditing', {
-        is: false, 
-        then: (schema) => schema.required('La contraseña es obligatoria para nuevos usuarios.'),
-        otherwise: (schema) => schema.notRequired().nullable().test( // Permite que no esté en el objeto
-             'no-presence', 
-             'Este campo debe ser nulo o vacío.', 
-             (value) => value === undefined || value === null || value === ''
-        ),
-    }),
+            .string()
+            .nullable() 
+            .test('min-length-if-present', 'La contraseña debe tener al menos 6 caracteres.', function(value) {
+                // Si el valor es null, undefined o cadena vacía, pasa la prueba.
+                if (!value) return true; 
+                // Si hay un valor, aplica la validación de longitud.
+                return value.length >= 6;
+            })
+            .when('$isEditing', {
+                is: false, 
+                // Crear: Requerida (y ahora .min(6) aplica porque value no será vacío)
+                then: (schema) => schema.required('La contraseña es obligatoria para nuevos usuarios.'), 
+                
+                // Editar: Es opcional y no requerida.
+                otherwise: (schema) => schema.notRequired(), 
+            }),
 });

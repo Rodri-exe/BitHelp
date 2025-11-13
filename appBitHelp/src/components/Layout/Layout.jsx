@@ -49,8 +49,8 @@ export function Layout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // 2. Generación dinámica del objeto de navegación (basado en el rol)
-  const dynamicNavigation = React.useMemo(() => {
+  //  Generación dinámica del objeto de navegación (basado en el rol)
+ const dynamicNavigation = React.useMemo(() => {
     // Definición base de los hijos de 'Tiquetes'
     const ticketChildren = [
       {
@@ -59,23 +59,23 @@ export function Layout({ children }) {
       },
     ];
 
-    // Lógica Condicional: Agregar 'Asignaciones' solo si es Técnico
+    // Lógica Condicional para 'Tiquetes'
     if (isTechnician || userRoleId == ROLE_ID_ADMIN) {
+      // Agrega 'Asignaciones' para Técnicos y Administradores
       ticketChildren.push({
         segment: 'assignments',
         title: 'Asignaciones',    
       });
-    }
-    //Muestra la opción de Agregar Tiquete únicamente si el rol es Cliente. 
-    else if (userRoleId === ROLE_ID_USER) {
+    } else if (userRoleId == ROLE_ID_USER) {
+      // Agrega 'Crear Tiquete' solo para Usuarios/Clientes
       ticketChildren.push({
         segment: 'createTicket',
         title: 'Crear Tiquete',    
       });
     }
 
-    // Estructura completa de la navegación
-    return [
+    // Estructura base de la navegación
+    const baseNavigation = [
       { kind: 'header', title: 'Menú Principal' },
       { segment: 'Home', title: 'Inicio', icon: <DashboardIcon /> },
       {
@@ -85,13 +85,27 @@ export function Layout({ children }) {
         children: ticketChildren,
       },
       { kind: 'divider' },
-      { kind: 'header', title: 'Técnicos' },
+      // Mantenimientos visibles para todos los roles (Técnicos y Categorías)
+      { kind: 'header', title: 'Administración' },
+      // Si no quieres que todos vean el mantenimiento de Técnicos, deberías aplicar
+      // una lógica similar a la de 'Usuarios' aquí, tal vez solo para Admin/Técnico.
       { segment: 'technician', title: 'Técnicos', icon: <GroupIcon /> },
       { kind: 'divider' },
       { segment: 'categories', title: 'Categorias', icon: <ViewListIcon/> },
       { kind: 'divider' },
-      { segment: 'users', title: 'Usuarios', icon: <GroupIcon /> },
+
+      
     ];
+    
+    // Lógica Condicional: Agregar 'Usuarios' solo si es Administrador
+    if (userRoleId == ROLE_ID_ADMIN) {
+        baseNavigation.push(
+            { segment: 'users', title: 'Usuarios', icon: <GroupIcon /> }
+        );
+    }
+    
+    return baseNavigation;
+
   }, [isTechnician, userRoleId]);
   
   // Objeto 'router' que Toolpad necesita
