@@ -4,6 +4,10 @@ import { Button,Chip,Paper,IconButton, Stack, Box, Alert,
     CircularProgress, Typography, Snackbar, Dialog, DialogTitle, 
     DialogContent, DialogContentText, DialogActions,Modal, Divider
 } from '@mui/material';
+
+// --- Importar react-hot-toast ---
+import toast, { Toaster } from 'react-hot-toast';
+
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -18,7 +22,8 @@ import TechnicianService from '../../services/TechnicianService';
 import UserService from '../../services/userService'; 
 import UserFormModal from './UserFormModal'; 
 import PasswordChangeModal from './PasswordChangeModal';
-// --- FUNCIONES HELPER ---
+
+// --- FUNCIONES HELPER (Mantienen igual) ---
 // 1. Chip para el Estado (Activo/Inactivo)
 const getStatusChip = (estado) => {
     const isActive = estado === '1' || estado === 1; 
@@ -35,12 +40,10 @@ const getStatusChip = (estado) => {
 
 // 2. Chip para la Disponibilidad del Técnico (Asumiendo 1=Disponible, 2=Ocupado)
 const getAvailabilityChip = (idDisponibilidad) => {
-    // Usamos Number() para asegurar la comparación
     const isAvailable = Number(idDisponibilidad) === 1;
     const label = isAvailable ? 'DISPONIBLE' : 'OCUPADO';
     const color = isAvailable ? 'info' : 'warning';
     
-    // Si idDisponibilidad es null o 0, mostramos 'N/A'
     if (!idDisponibilidad) {
         return <Chip label="N/A" color="default" size="small" sx={{ fontWeight: 'bold' }} />;
     }
@@ -55,7 +58,7 @@ const getAvailabilityChip = (idDisponibilidad) => {
     );
 };
 
-// --- 1. DEFINICIÓN DE COLUMNAS ---
+// --- 1. DEFINICIÓN DE COLUMNAS (Mantiene igual) ---
 const getColumns = (handleOpenDetailModal, handleEdit, handleDelete,handleOpenPasswordModal) => [
     { field: 'idUsuario', headerName: 'ID', width: 90, headerAlign: 'center', align: 'center' ,type: 'number' },
     { 
@@ -111,17 +114,16 @@ export default function UserMaintenance() {
     
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [successMessage, setSuccessMessage] = useState(null);
+    // const [error, setError] = useState(null);
+    // const [successMessage, setSuccessMessage] = useState(null); 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentUser, setCurrentUser] = useState(null); 
     const [passModalOpen, setPassModalOpen] = useState(false);
     const [openDetailModal, setOpenDetailModal] = useState(false);
-    // selectedUser será un objeto que puede contener datos de usuario BÁSICO O extendido (si es técnico)
     const [selectedUser, setSelectedUser] = useState(null); 
     const [detailLoading, setDetailLoading] = useState(false);
 
-    // --- ESTILO DEL MODAL ---
+    // --- ESTILO DEL MODAL (Mantiene igual) ---
     const modalStyle = {
         position: 'absolute',
         top: '50%',
@@ -142,13 +144,11 @@ export default function UserMaintenance() {
 
     const fetchUsers = useCallback(async () => {
         setLoading(true);
-        setError(null);
+        // setError(null); // Ya no se necesita el estado de error local
         try {
             const response = await UserService.getAllUsers(); 
-            // Aseguramos que los datos del técnico vengan con campos por defecto
             const mappedUsers = response.data.map(user => ({
                 ...user,
-                // Añadimos campos de técnico por defecto
                 cargaTrabajo: user.cargaTrabajo || null, 
                 idDisponibilidad: user.idDisponibilidad || null,
                 especialidades: user.especialidades && Array.isArray(user.especialidades) ? user.especialidades : []
@@ -156,7 +156,7 @@ export default function UserMaintenance() {
             setUsers(mappedUsers); 
         } catch (err) {
             console.error("Error al cargar usuarios:", err);
-            setError("No se pudieron cargar los usuarios. Verifica la conexión a la API.");
+            toast.error("No se pudieron cargar los usuarios. Verifica la conexión a la API.");
             setUsers([]);
         } finally {
             setLoading(false);
@@ -180,12 +180,12 @@ export default function UserMaintenance() {
 
     const handlePassModalClose = useCallback((success = false, message = null) => {
         setPassModalOpen(false);
-            setSelectedUser(null); // Limpiamos el usuario seleccionado
-            
-        if (success) {
-        // Usamos la misma lógica de éxito que en handleModalClose
-                setSuccessMessage(message);
-        // No recargamos la lista, ya que la contraseña no se muestra en la tabla.
+        setSelectedUser(null); // Limpiamos el usuario seleccionado
+        
+        if (success && message) {
+            toast.success(message);
+        } else if (!success && message) {
+            toast.error(message);
         }
     }, []);
 
@@ -193,39 +193,30 @@ export default function UserMaintenance() {
      * Apertura del modal de detalles con carga de datos adicionales si es Técnico.
      */
     const handleOpenDetailModal = useCallback(async (user) => { 
-        // 1. Mostrar la data básica inmediatamente
         setSelectedUser(user);
         setOpenDetailModal(true);
 
-        // 2. Si el usuario es un Técnico (idRol 2), cargamos su data adicional
         if (user.idRol === '2' || user.nombreRol === 'Técnico') {
             setDetailLoading(true);
             try {
-                // LLAMADA AL SERVICIO DE TÉCNICOS USANDO EL idUsuario
-                // **NOTA CRÍTICA: Debes tener un endpoint que acepte idUsuario**
                 const response = await TechnicianService.getTechnicianDetailsByUserId(user.idUsuario);
                 
-                // Si la API devuelve el objeto de técnico directamente
                 const technicianDetails = response.data.result || response.data;
                 
-                // Aseguramos que las especialidades sean un array de strings si vienen de forma plana.
                 let finalSpecialties = technicianDetails.especialidades || [];
                 if (typeof finalSpecialties === 'string') {
-                    // Si viene como una cadena separada por algún delimitador (ej: 'Especialidad1|||Especialidad2')
                     finalSpecialties = finalSpecialties.split('|||');
                 }
                 
-                // Actualizar el estado con la data extendida
                 setSelectedUser(prev => ({ 
                     ...prev, 
-                    // Sobreescribir campos con la data del técnico (carga, disponibilidad, especialidades)
                     cargaTrabajo: technicianDetails.cargaTrabajo || '00:00:00', 
                     idDisponibilidad: technicianDetails.idDisponibilidad || 0,
                     especialidades: finalSpecialties,
                 }));
             } catch (error) {
                 console.error("Error al cargar detalles del técnico:", error.response?.data || error.message);
-                // Si falla la carga del detalle del técnico, el modal sigue mostrando la info básica
+                // No mostramos un toast de error por los detalles del técnico, solo cargamos la info básica.
                 setSelectedUser(prev => ({ 
                     ...prev, 
                     cargaTrabajo: 'N/A', 
@@ -260,11 +251,10 @@ export default function UserMaintenance() {
         try {
             await UserService.deleteUser(userToDelete); 
             await fetchUsers(); 
-            setSuccessMessage(`Usuario ID ${userToDelete} eliminado correctamente.`);
+            toast.success(`Usuario ID ${userToDelete} eliminado correctamente.`);
         } catch (err) {
             console.error("Error al eliminar usuario:", err);
-            setSuccessMessage(null);
-            setError("Hubo un error al intentar eliminar el usuario.");
+            toast.error("Hubo un error al intentar eliminar el usuario.");
         } finally {
             setUserToDelete(null);
         }
@@ -277,14 +267,10 @@ export default function UserMaintenance() {
             fetchUsers();
         }
         if (message) {
-             setSuccessMessage(message);
+            toast.success(message);
         }
     }, [fetchUsers]);
     
-    const handleCloseSnackbar = () => {
-        setSuccessMessage(null);
-        setError(null);
-    };
 
 
     // --- RENDERIZADO ---
@@ -292,6 +278,9 @@ export default function UserMaintenance() {
 
     return (
         <Box sx={{ p: 0, height: '100%' }}>
+            {/* Componente Toaster */}
+            <Toaster position="top-center" />
+            
             <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-start' }}>
                 <Button 
                     variant="contained" 
@@ -302,8 +291,6 @@ export default function UserMaintenance() {
                     Crear Usuario
                 </Button>
             </Box>
-
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
             
             <Box sx={{ height: 630, width: '100%', backgroundColor: 'white', borderRadius: 2, boxShadow: 3 }}>
                 {loading ? (
@@ -343,7 +330,7 @@ export default function UserMaintenance() {
                 />
             )}
 
-            {/* MODAL DE VISUALIZACIÓN DE DETALLES */}
+            {/* MODAL DE VISUALIZACIÓN DE DETALLES (Mantiene igual) */}
             <Modal
                 open={openDetailModal}
                 onClose={handleCloseDetailModal}
@@ -351,7 +338,7 @@ export default function UserMaintenance() {
             >
                 <Box sx={modalStyle}>
                     <Typography id="user-details-modal-title" variant="h5" component="h2" mb={1} sx={{ color: '#00796b', fontWeight: 'bold' }}>
-                         Detalles del Usuario
+                        Detalles del Usuario
                     </Typography>
                     
                     <Divider sx={{ mb: 2 }} />
@@ -446,7 +433,7 @@ export default function UserMaintenance() {
                 </Box>
             </Modal>
 
-            {/* DIALOGO DE CONFIRMACIÓN */}
+            {/* DIALOGO DE CONFIRMACIÓN (Mantiene igual) */}
             <Dialog
                 open={isConfirmOpen}
                 onClose={() => setIsConfirmOpen(false)}
@@ -469,17 +456,6 @@ export default function UserMaintenance() {
                 </DialogActions>
             </Dialog>
             
-            {/* SNACKBAR DE MENSAJES */}
-            <Snackbar 
-                open={!!successMessage} 
-                autoHideDuration={6000} 
-                onClose={handleCloseSnackbar}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            >
-                <Alert onClose={handleCloseSnackbar} severity="success" sx={{ width: '100%' }}>
-                    {successMessage}
-                </Alert>
-            </Snackbar>
         </Box>
     );
 }
